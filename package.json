@@ -1,0 +1,9 @@
+{
+  "name": "ticket-frontend",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix ticket-react run dev",
+    "build": "npm --prefix ticket-react run build",
+    "preview": "npm --prefix ticket-react run preview"
+  }
+}
