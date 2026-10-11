@@ -1,4 +1,3 @@
-// Edit API_BASE here if the backend URL (or stage) ever changes. No trailing slash.
 // Edit API_BASE here or set VITE_API_BASE in .env. No trailing slash.
 export const API_BASE = (import.meta.env && import.meta.env.VITE_API_BASE) || "https://1jgh0qrgfg.execute-api.ap-southeast-2.amazonaws.com";
 
@@ -39,6 +38,7 @@ function normalizeTicket(raw) {
     team: t.team ? String(t.team).toLowerCase() : "",
     summary: t.summary || "",
     reason: t.reason || "",
+    classifiedBy: t.classifiedBy || "",
     createdAt: t.createdAt || "",
   };
 }

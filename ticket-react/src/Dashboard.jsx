@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [status, setStatus] = useState({ text: "Loading tickets...", error: false });
   const [urgency, setUrgency] = useState("all");
   const [team, setTeam] = useState("all");
+  const [dedup, setDedup] = useState(true);
   const [open, setOpen] = useState(() => new Set());
 
   useEffect(() => {
@@ -30,15 +31,38 @@ export default function Dashboard() {
   }, []);
 
   const shown = useMemo(() => {
-    return tickets
-      .filter((t) => {
-        if (urgency === "PENDING" && t.urgency) return false;
-        if (urgency !== "all" && urgency !== "PENDING" && t.urgency !== urgency) return false;
-        if (team !== "all" && t.team !== team) return false;
-        return true;
-      })
-      .sort((a, b) => rank(a) - rank(b) || (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
-  }, [tickets, urgency, team]);
+    const filtered = tickets.filter((t) => {
+      if (urgency === "PENDING" && t.urgency) return false;
+      if (urgency !== "all" && urgency !== "PENDING" && t.urgency !== urgency) return false;
+      if (team !== "all" && t.team !== team) return false;
+      return true;
+    });
+
+    if (!dedup) {
+      return filtered.sort((a, b) => rank(a) - rank(b) || (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+    }
+
+    // Group tickets with identical text
+    const groups = new Map();
+    for (const t of filtered) {
+      const key = (t.text || "").trim().toLowerCase();
+      if (!groups.has(key)) {
+        groups.set(key, { ...t, count: 1 });
+      } else {
+        const existing = groups.get(key);
+        existing.count += 1;
+        // Keep the latest createdAt
+        if (t.createdAt > existing.createdAt) {
+          existing.createdAt = t.createdAt;
+          existing.ticketId = t.ticketId;
+        }
+      }
+    }
+
+    return Array.from(groups.values()).sort(
+      (a, b) => rank(a) - rank(b) || (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)
+    );
+  }, [tickets, urgency, team, dedup]);
 
   const count = (u) => tickets.filter((t) => t.urgency === u).length;
   const high = count("HIGH"), med = count("MEDIUM"), low = count("LOW");
@@ -88,6 +112,12 @@ export default function Dashboard() {
             <option value="general">General</option>
           </select>
         </label>
+        <label>Display
+          <select value={dedup ? "unique" : "all"} onChange={(e) => setDedup(e.target.value === "unique")}>
+            <option value="unique">Grouped ({shown.length} unique)</option>
+            <option value="all">All tickets ({tickets.length} total)</option>
+          </select>
+        </label>
       </div>
 
       <p id="updated" className={"meta" + (status.error ? " error" : "")} aria-live="polite">{status.text}</p>
@@ -107,6 +137,7 @@ export default function Dashboard() {
           >
             <summary className="row-head">
               <span className={"tag tag--" + (t.urgency || "pending").toLowerCase()}>{urgencyLabel(t.urgency)}</span>
+              {t.count > 1 && <span className="tag" style={{ background: "#475569", color: "#fff" }}>{t.count} reports</span>}
               <span className="row-main">{t.summary || t.text}</span>
               <span className="row-team">{t.team || "Unassigned"}</span>
               <time className="row-time">{formatTime(t.createdAt)}</time>
@@ -114,6 +145,7 @@ export default function Dashboard() {
             <div className="row-body">
               <p>{t.text}</p>
               {t.reason && <p className="meta">Why: {t.reason}</p>}
+              {t.classifiedBy && <p className="meta">Classified By: {t.classifiedBy}</p>}
               <p className="meta">Status: {t.status}</p>
               <p className="meta">Ticket ID: {t.ticketId}</p>
             </div>
